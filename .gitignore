@@ -1,0 +1,29 @@
+# Environments
+.venv/
+venv/
+ENV/
+env/
+*.pyc
+__pycache__/
+
+# Dependencies
+node_modules/
+/frontend/node_modules/
+
+# Production Build
+dist/
+build/
+/frontend/dist/
+
+# Local configuration files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE / System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
