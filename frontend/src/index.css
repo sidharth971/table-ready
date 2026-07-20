@@ -44,7 +44,7 @@
   border: 1px solid rgba(255, 125, 60, 0.3);
 }
 
-/* Micro-animations */
+/* Micro-animations & Automatically Visible Effects */
 @keyframes pulse-ring {
   0% {
     transform: scale(0.95);
@@ -52,7 +52,7 @@
   }
   70% {
     transform: scale(1);
-    box-shadow: 0 0 0 10px rgba(255, 125, 60, 0);
+    box-shadow: 0 0 0 12px rgba(255, 125, 60, 0);
   }
   100% {
     transform: scale(0.95);
@@ -78,3 +78,123 @@
 .animate-slide-in {
   animation: slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Staggered entrance cascade */
+@keyframes cascadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-cascade {
+  animation: cascadeIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* Continuous Automatic Ambient Glows */
+@keyframes autoGlowPreparing {
+  0%, 100% {
+    box-shadow: 0 0 15px -3px rgba(234, 179, 8, 0.25), inset 0 0 10px rgba(234, 179, 8, 0.05);
+    border-color: rgba(234, 179, 8, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 25px 2px rgba(234, 179, 8, 0.45), inset 0 0 15px rgba(234, 179, 8, 0.12);
+    border-color: rgba(234, 179, 8, 0.6);
+  }
+}
+
+.auto-glow-preparing {
+  animation: autoGlowPreparing 3s ease-in-out infinite;
+}
+
+@keyframes autoGlowReady {
+  0%, 100% {
+    box-shadow: 0 0 18px -3px rgba(255, 125, 60, 0.3), inset 0 0 10px rgba(255, 125, 60, 0.08);
+    border-color: rgba(255, 125, 60, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 30px 4px rgba(255, 125, 60, 0.55), inset 0 0 20px rgba(255, 125, 60, 0.18);
+    border-color: rgba(255, 125, 60, 0.75);
+  }
+}
+
+.auto-glow-ready {
+  animation: autoGlowReady 2.2s ease-in-out infinite;
+}
+
+@keyframes autoGlowDelivered {
+  0%, 100% {
+    box-shadow: 0 0 12px -3px rgba(34, 197, 94, 0.15);
+    border-color: rgba(34, 197, 94, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 20px 0px rgba(34, 197, 94, 0.35);
+    border-color: rgba(34, 197, 94, 0.45);
+  }
+}
+
+.auto-glow-delivered {
+  animation: autoGlowDelivered 4s ease-in-out infinite;
+}
+
+/* Moving Shimmer Bar & Light Beams */
+@keyframes shimmerBeam {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer-bar {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,125,60,0.4) 50%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmerBeam 2.5s infinite linear;
+}
+
+/* Continuous Radar Ring Effect */
+@keyframes radarRing {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+.animate-radar {
+  position: relative;
+}
+.animate-radar::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  border: 2px solid currentColor;
+  animation: radarRing 1.8s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+  pointer-events: none;
+}
+
+/* Beacon Flashing Dot */
+@keyframes beaconFlash {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+}
+
+.animate-beacon {
+  animation: beaconFlash 1.2s ease-in-out infinite;
+}
+

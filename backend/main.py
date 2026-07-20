@@ -396,6 +396,13 @@ async def create_order(order: Order):
     
     return order_dict
 
+@app.get("/api/orders", response_model=List[Dict])
+async def get_all_orders():
+    orders = []
+    async for order in orders_collection.find().sort("created_at", -1):
+        orders.append(serialize_doc(order))
+    return orders
+
 @app.get("/api/orders/active", response_model=List[Dict])
 async def get_active_orders():
     active_orders = []
@@ -403,6 +410,13 @@ async def get_active_orders():
     async for order in orders_collection.find({"status": {"$ne": "Delivered"}}).sort("created_at", 1):
         active_orders.append(serialize_doc(order))
     return active_orders
+
+@app.get("/api/orders/table/{table_id}", response_model=List[Dict])
+async def get_table_orders(table_id: str):
+    orders = []
+    async for order in orders_collection.find({"table_id": table_id}).sort("created_at", 1):
+        orders.append(serialize_doc(order))
+    return orders
 
 @app.put("/api/orders/{order_id}/status", response_model=Dict)
 async def update_order_status(order_id: str, payload: Dict):

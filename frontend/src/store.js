@@ -8,7 +8,9 @@ export const useStore = create((set, get) => ({
   cart: [],
   activeTableId: null,
   activeOrders: [],
-  customerOrder: null, // Track current customer's order for tracking/feedback
+  allOrders: [], // Track all orders for the user dashboard
+  customerOrder: null, // Track current customer's order for tracking/feedback (kept for legacy support)
+  customerOrders: [], // Track all customer's orders for the current table session
   ws: null,
 
   setTableId: (tableId) => set({ activeTableId: tableId }),
@@ -101,14 +103,46 @@ export const useStore = create((set, get) => ({
       const orderResult = await response.json();
       
       // Save customer order locally for tracking and rating
-      set({ customerOrder: orderResult, cart: [] });
+      const currentOrders = get().customerOrders || [];
+      const updatedOrders = [...currentOrders, orderResult];
+      set({ 
+        customerOrders: updatedOrders,
+        customerOrder: orderResult, 
+        cart: [] 
+      });
       
       // Store in localStorage so it persists across refreshes for the customer
+      localStorage.setItem('customer_orders', JSON.stringify(updatedOrders));
       localStorage.setItem('customer_order', JSON.stringify(orderResult));
       return orderResult;
     } catch (error) {
       console.error('Error placing order:', error);
       return null;
+    }
+  },
+
+  fetchTableOrders: async (tableId) => {
+    try {
+      const response = await fetch(`${API_BASE}/orders/table/${tableId}`);
+      if (!response.ok) throw new Error('Failed to fetch table orders');
+      const data = await response.json();
+      set({ customerOrders: data });
+      if (data.length > 0) {
+        set({ customerOrder: data[data.length - 1] });
+      }
+    } catch (error) {
+      console.error('Error fetching table orders:', error);
+    }
+  },
+
+  fetchAllOrders: async () => {
+    try {
+      const response = await fetch(`${API_BASE}/orders`);
+      if (!response.ok) throw new Error('Failed to fetch all orders');
+      const data = await response.json();
+      set({ allOrders: data });
+    } catch (error) {
+      console.error('Error fetching all orders:', error);
     }
   },
 
@@ -134,7 +168,7 @@ export const useStore = create((set, get) => ({
       const updatedOrder = await response.json();
       
       // Update state locally
-      const { activeOrders, customerOrder } = get();
+      const { activeOrders, customerOrder, customerOrders = [] } = get();
       
       // If order is completed (Delivered), remove from active kitchen orders, else update status
       let newActiveOrders;
@@ -146,6 +180,20 @@ export const useStore = create((set, get) => ({
       
       set({ activeOrders: newActiveOrders });
 
+      // Update allOrders if this order exists in it
+      const { allOrders = [] } = get();
+      if (allOrders.some(o => o._id === orderId)) {
+        const updatedAllOrders = allOrders.map(o => o._id === orderId ? updatedOrder : o);
+        set({ allOrders: updatedAllOrders });
+      }
+
+      // Update customerOrders if this order belongs to this customer
+      if (customerOrders.some(o => o._id === orderId)) {
+        const updatedCustomerOrders = customerOrders.map(o => o._id === orderId ? updatedOrder : o);
+        set({ customerOrders: updatedCustomerOrders });
+        localStorage.setItem('customer_orders', JSON.stringify(updatedCustomerOrders));
+      }
+
       // If this is the active customer order, update its status
       if (customerOrder && customerOrder._id === orderId) {
         set({ customerOrder: updatedOrder });
@@ -156,12 +204,13 @@ export const useStore = create((set, get) => ({
     }
   },
 
-  submitFeedback: async (waiterRating, itemFeedbacks, overallComments) => {
-    const { customerOrder } = get();
-    if (!customerOrder) return false;
+  submitFeedback: async (orderId, waiterRating, itemFeedbacks, overallComments) => {
+    const { customerOrders = [], customerOrder } = get();
+    const targetOrder = customerOrders.find(o => o._id === orderId) || (customerOrder && customerOrder._id === orderId ? customerOrder : null);
+    if (!targetOrder) return false;
 
     const payload = {
-      order_id: customerOrder._id,
+      order_id: orderId,
       waiter_rating: waiterRating,
       items_feedback: itemFeedbacks.map(f => ({
         item_id: f.item_id,
@@ -182,9 +231,24 @@ export const useStore = create((set, get) => ({
       if (!response.ok) throw new Error('Failed to submit feedback');
       
       // Mark feedback as submitted locally
-      const updatedOrder = { ...customerOrder, feedback_submitted: true };
-      set({ customerOrder: updatedOrder });
-      localStorage.setItem('customer_order', JSON.stringify(updatedOrder));
+      const updatedCustomerOrders = customerOrders.map(o => {
+        if (o._id === orderId) {
+          return { ...o, feedback_submitted: true };
+        }
+        return o;
+      });
+
+      const updatedOrder = { ...targetOrder, feedback_submitted: true };
+
+      set({ 
+        customerOrders: updatedCustomerOrders,
+        customerOrder: customerOrder && customerOrder._id === orderId ? updatedOrder : customerOrder
+      });
+
+      localStorage.setItem('customer_orders', JSON.stringify(updatedCustomerOrders));
+      if (customerOrder && customerOrder._id === orderId) {
+        localStorage.setItem('customer_order', JSON.stringify(updatedOrder));
+      }
       return true;
     } catch (error) {
       console.error('Error submitting feedback:', error);
@@ -193,20 +257,32 @@ export const useStore = create((set, get) => ({
   },
 
   loadPersistedOrder: () => {
-    const persisted = localStorage.getItem('customer_order');
-    if (persisted) {
+    const persistedOrders = localStorage.getItem('customer_orders');
+    if (persistedOrders) {
       try {
-        const order = JSON.parse(persisted);
-        set({ customerOrder: order });
+        const orders = JSON.parse(persistedOrders);
+        set({ customerOrders: orders, customerOrder: orders[orders.length - 1] || null });
       } catch (e) {
-        localStorage.removeItem('customer_order');
+        localStorage.removeItem('customer_orders');
+      }
+    } else {
+      // Fallback/Legacy
+      const persisted = localStorage.getItem('customer_order');
+      if (persisted) {
+        try {
+          const order = JSON.parse(persisted);
+          set({ customerOrders: [order], customerOrder: order });
+        } catch (e) {
+          localStorage.removeItem('customer_order');
+        }
       }
     }
   },
 
   clearPersistedOrder: () => {
     localStorage.removeItem('customer_order');
-    set({ customerOrder: null });
+    localStorage.removeItem('customer_orders');
+    set({ customerOrder: null, customerOrders: [] });
   },
 
   connectWebSocket: () => {
@@ -233,6 +309,9 @@ export const useStore = create((set, get) => ({
           } catch(e) {}
           
           set({ activeOrders: [...activeOrders, order] });
+
+          const currentAllOrders = get().allOrders || [];
+          set({ allOrders: [order, ...currentAllOrders] });
         } 
         
         else if (eventName === 'order_updated') {
@@ -250,6 +329,23 @@ export const useStore = create((set, get) => ({
             }
           }
           set({ activeOrders: newActiveOrders });
+
+          // Update allOrders list
+          const currentAllOrders = get().allOrders || [];
+          if (currentAllOrders.some(o => o._id === order._id)) {
+            const updatedAllOrders = currentAllOrders.map(o => o._id === order._id ? order : o);
+            set({ allOrders: updatedAllOrders });
+          } else {
+            set({ allOrders: [order, ...currentAllOrders] });
+          }
+
+          // Update customer orders if it matches
+          const currentCustomerOrders = get().customerOrders || [];
+          if (currentCustomerOrders.some(o => o._id === order._id)) {
+            const updatedCustomerOrders = currentCustomerOrders.map(o => o._id === order._id ? order : o);
+            set({ customerOrders: updatedCustomerOrders });
+            localStorage.setItem('customer_orders', JSON.stringify(updatedCustomerOrders));
+          }
 
           // Update customer order if it matches
           if (customerOrder && customerOrder._id === order._id) {
